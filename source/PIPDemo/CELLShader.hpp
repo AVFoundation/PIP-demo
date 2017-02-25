@@ -381,6 +381,7 @@ public:
             "void main()"
             "{"
 			"	vec4	tColor0	=	texture2D(_texture, _outUV);"
+			"	tColor0 = tColor0.bgra;"
             "   gl_FragColor   =   tColor0 * _outColor;"
             "}"
         };

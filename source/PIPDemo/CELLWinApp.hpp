@@ -127,34 +127,9 @@ namespace   CELL
             _surface    =   EGL_NO_SURFACE;
         }
 
-		virtual unsigned loadTexture(const char * fileName)
+		virtual unsigned beginTexture()
 		{
 			unsigned textureId	=	0;
-			//获取文件格式
-			FREE_IMAGE_FORMAT	fifmt = FreeImage_GetFileType(fileName);
-
-			//加载图片
-			FIBITMAP		*	dib = FreeImage_Load(fifmt, fileName, 0);
-
-			//转化为rgb24
-			dib						= FreeImage_ConvertTo24Bits(dib);
-			
-
-			//获取数据指针
-			BYTE *				pixels = FreeImage_GetBits(dib);
-
-			int width		= FreeImage_GetWidth(dib);
-			int height		= FreeImage_GetHeight(dib);
-
-			//默认是bgr，所以需要翻转为rgb
-			
-			for(size_t i = 0; i <  width*height*3; i+=3)
-			{
-				BYTE temp	= pixels[i];
-				pixels[i]	= pixels[i+2];
-				pixels[i + 2]	= temp;
-			}
-
 			//产生一个纹理id，即纹理句柄
 			glGenTextures(1, &textureId);
 
@@ -164,27 +139,15 @@ namespace   CELL
 			//指定纹理的放大、缩小滤波，使用线性方式
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-			//将图片的rgb数据上传给opengl
-			glTexImage2D(
-				GL_TEXTURE_2D,
-				0,				//指定是第一级别的纹理
-				GL_RGB,			//纹理在显卡中使用的存储格式
-				width,
-				height,
-				0,
-				GL_RGB,			//数据的格式，即windows下操作的图片数据
-				GL_UNSIGNED_BYTE,
-				pixels
-				);
-
-			//释放内存
-			FreeImage_Unload(dib);
-
 			return textureId;
-
 		}
-		virtual void loadSubTexture(const char * fileName)
+
+		virtual void endTexture(unsigned textureId)
+		{
+			glDeleteTextures(1, &textureId);
+		}
+
+		virtual void loadTexture(const char * fileName, int largeSize)
 		{
 		
 			//获取文件格式
@@ -203,28 +166,50 @@ namespace   CELL
 			int width		= FreeImage_GetWidth(dib);
 			int height		= FreeImage_GetHeight(dib);
 
-			//默认是bgr，所以需要翻转为rgb
+			/*默认是bgr，所以需要翻转为rgb
 			
 			for(size_t i = 0; i <  width*height*3; i+=3)
 			{
 				BYTE temp	= pixels[i];
 				pixels[i]	= pixels[i+2];
 				pixels[i + 2]	= temp;
-			}
+			}*/
 
+			if(1 == largeSize)
+			{
+
+			//将图片的rgb数据上传给opengl
+			glTexImage2D(
+				GL_TEXTURE_2D,
+				0,				//指定是第一级别的纹理
+				GL_RGB,			//纹理在显卡中使用的存储格式
+				width,
+				height,
+				0,
+				GL_RGB,			//数据的格式，即windows下操作的图片数据
+				GL_UNSIGNED_BYTE,
+				pixels
+				);
+			}
+			else
+			{
+				int xoffset = 100;
+				int yoffset = 100;
 
 			//将图片的rgb数据上传给opengl
 			glTexSubImage2D(
 				GL_TEXTURE_2D,
 				0,				//指定是第一级别的纹理
-				100,
-				100,
+				xoffset,
+				yoffset,
 				width,
 				height,
 				GL_RGB,			//数据的格式，即windows下操作的图片数据
 				GL_UNSIGNED_BYTE,
 				pixels
 				);
+			}
+
 
 			//释放内存
 			FreeImage_Unload(dib);
@@ -347,7 +332,7 @@ namespace   CELL
 				glBindTexture(GL_TEXTURE_2D, _textureId);
 
 				
-				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 				/*glActiveTexture(GL_TEXTURE1);
 				glBindTexture(GL_TEXTURE_2D, _textureId2);*/
 				glUniformMatrix4fv(_shader._MVP, 1, false, matMVP.data());//uniform是全局的，attribute是局部变量
@@ -357,8 +342,8 @@ namespace   CELL
 				glVertexAttribPointer(_shader._color, 4, GL_UNSIGNED_BYTE, true, sizeof(struct Vertex), &vertex[0].color);
 				glVertexAttribPointer(_shader._uv, 2, GL_FLOAT, false, sizeof(struct Vertex), &vertex[0].uv);
 				glVertexAttribPointer(_shader._position, 2, GL_FLOAT, false, sizeof(struct Vertex), vertex);
-				//glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-				loadSubTexture("data/image/grass.png");
+				glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+				
 
 				
 			}
@@ -418,8 +403,9 @@ namespace   CELL
             }
 			_shader.initialize();
 
-
-			_textureId = loadTexture("data/image/main.jpg");
+			_textureId = beginTexture();
+			loadTexture("data/image/main.jpg", 1);
+			loadTexture("data/image/grass.png", 0);
 			//加载第二张纹理
 			//_textureId2 = loadTexture("data/image/fog.bmp");
             MSG msg =   {0};
@@ -447,6 +433,7 @@ namespace   CELL
             /**
             *   销毁OpenGLES20
             */
+			endTexture(_textureId);
             destroyOpenGLES20();
 
             return  0;
