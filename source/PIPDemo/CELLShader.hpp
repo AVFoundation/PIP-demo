@@ -1,6 +1,10 @@
 #pragma once
 
 #include <assert.h>
+#include <EGL/egl.h>
+#include <gles2/gl2.h>
+
+#include "freeImage/FreeImage.h"
 
 class    ShaderId
 {
@@ -10,6 +14,106 @@ public:
         _shaderId   =   -1;
     }
     int _shaderId;
+};
+
+class TextureId
+{
+public:
+	int		_textureId;
+public:
+	TextureId()
+	{
+		_textureId = -1;
+	}
+
+	void activeTexture()
+	{
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, _textureId);
+	}
+
+	void getTexture(const char * fileName)
+	{
+		_textureId = createTextureFromImage(fileName, false);
+	}
+
+	void getSubTexture(const char * fileName)
+	{
+		 createTextureFromImage(fileName, true);
+	}
+
+	void    releaseTexture(GLuint texId)
+	{
+		glDeleteTextures(1, &texId);
+	}
+protected:
+	/**
+    *   使用FreeImage加载图片
+    */
+    unsigned    createTextureFromImage(const char* fileName, bool isSubTexture)
+    {
+        //1 获取图片格式
+        FREE_IMAGE_FORMAT fifmt = FreeImage_GetFileType(fileName, 0);
+        if (fifmt == FIF_UNKNOWN)
+        {
+            return  0;
+        }
+        //2 加载图片
+        FIBITMAP    *dib = FreeImage_Load(fifmt, fileName, 0);
+
+        FREE_IMAGE_COLOR_TYPE type = FreeImage_GetColorType(dib);
+
+        //! 获取数据指针
+        FIBITMAP*   temp = dib;
+        dib = FreeImage_ConvertTo32Bits(dib);
+        FreeImage_Unload(temp);
+
+        BYTE*   pixels = (BYTE*)FreeImage_GetBits(dib);
+        int     width = FreeImage_GetWidth(dib);
+        int     height = FreeImage_GetHeight(dib);
+
+		unsigned    res;
+
+		if(!isSubTexture)
+			   res = createTexture(width, height, pixels, GL_RGBA);
+		else
+			   res = createSubTexture(width, height, pixels, GL_RGBA);
+
+        FreeImage_Unload(dib);
+        return      res;
+    }
+
+	unsigned    createTexture(int w, int h, const void* data, GLenum type)
+    {
+        unsigned    texId;
+        glGenTextures(1, &texId);
+        glBindTexture(GL_TEXTURE_2D, texId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, type, w, h, 0, type, GL_UNSIGNED_BYTE, data);
+
+
+        return  texId;
+    }
+
+
+	unsigned    createSubTexture(int w, int h, const void* data, GLenum type)
+    {
+       
+        glTexSubImage2D(
+				GL_TEXTURE_2D,
+				0,				//指定是第一级别的纹理
+				100,			//这里subTexture的xoffset和yoffset固定为100
+				100,			//
+				w,
+				h,
+				type,			//数据的格式，即windows下操作的图片数据
+				GL_UNSIGNED_BYTE,
+				data
+				);
+		return 0;
+    }
 };
 
 
